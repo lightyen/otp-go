@@ -37,7 +37,7 @@ func generate(key string, interval uint64) (uint32, error) {
 }
 
 func main() {
-	secret := base32.StdEncoding.EncodeToString([]byte("sdf@#wBfwa"))
+	secret := base32.StdEncoding.EncodeToString([]byte("sdf@#wBfwa12345"))
 	u := url.URL{
 		Scheme: "otpauth",
 		Host:   "totp",
@@ -57,19 +57,16 @@ func main() {
 	e := gin.Default()
 	e.LoadHTMLGlob("templates/*")
 	dataURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
-	e.GET("/", func(c *gin.Context) {
 
+	e.GET("/", func(c *gin.Context) {
 		values := struct {
 			Value  string
 			QRCode template.URL
 		}{}
-
 		values.QRCode = template.URL(dataURL)
-
 		if pwd, err := generate(secret, 30); err == nil {
 			values.Value = fmt.Sprintf("%06d", pwd%1e6)
 		}
-
 		c.HTML(http.StatusOK, "app.tmpl", values)
 	})
 
