@@ -1,0 +1,58 @@
+<canvas id="qr"></canvas>
+<div id="value" class="text-2xl font-bold p-3"></div>
+<div class="text-gray-900">剩餘時間：<span id="remain"></span>s</div>
+<script>
+    const u = new URL("{{ .URL }}")
+    const q = u.search.startsWith("?") ? u.search.substring(1) : u.search
+    const query = Qs.parse(q)
+    const totp = new OTPAuth.TOTP({
+        issuer: query["issuer"] || "example.com",
+        label: 'Test',
+        algorithm: query["algorithm"] || 'SHA1',
+        digits: query["digits"] || 6,
+        period: query["period"] || 30,
+        secret: query["secret"]
+    });
+
+    const c = document.getElementById('qr')
+    QRCode.toCanvas(c, '{{ .URL }}', {
+        // errorCorrectionLevel: "H",
+        width: 256,
+        height: 256,
+        color: {
+            light: "#edf2f7ff",
+            dark: "#1a202cff",
+        },
+    }, function (error) {
+        if (error) console.error(error)
+    })
+    // logo
+    // const ctx = c.getContext("2d");
+    // ctx.fillStyle = "#FFA500";
+    // ctx.fillRect((256 - 48) / 2, (256 - 48) / 2, 48, 48)
+
+    const period = parseInt(query["period"] || 30) * 1000
+	console.log("period =", period)
+    function start() {
+        let remain = period - (new Date().getTime() % period)
+        document.getElementById("value").textContent = totp.generate()
+        document.getElementById("remain").textContent = (remain / 1000).toFixed(2)
+        let prev = 0
+        function anime(t) {
+            const elapsed = t - prev
+            prev = t
+            remain -= elapsed
+            if (remain < 0) {
+                window.requestAnimationFrame(start)
+                return
+            }
+            document.getElementById("remain").textContent = (remain / 1000).toFixed(2)
+            window.requestAnimationFrame(anime)
+        }
+
+        window.requestAnimationFrame(anime)
+    }
+
+    start()
+
+</script>
