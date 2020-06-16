@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"html/template"
+	"image/color"
 	"net/http"
 	"net/url"
 	"time"
@@ -37,38 +38,61 @@ func generate(key string, interval uint64) (uint32, error) {
 }
 
 func main() {
-	secret := base32.StdEncoding.EncodeToString([]byte("sdf@#wBfwa12345"))
-	u := url.URL{
-		Scheme: "otpauth",
-		Host:   "totp",
-		Path:   "/example.com:user",
-	}
-	v := url.Values{
-		"secret": []string{secret},
-		"issuer": []string{"example.com"},
-	}
-	u.RawQuery = v.Encode()
-	png, err := qrcode.Encode(u.String(), qrcode.Medium, 256)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
 	e := gin.Default()
 	e.LoadHTMLGlob("templates/*")
-	dataURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
 
 	e.GET("/", func(c *gin.Context) {
+		secret := c.Query("secret")
+		if secret == "" {
+			c.Redirect(301, "?secret=GEZDGNBVGY3TQOJQ")
+			return
+		}
+
+		u := url.URL{
+			Scheme: "otpauth",
+			Host:   "totp",
+			Path:   "/example.com:App",
+		}
+		v := url.Values{
+			"secret": []string{secret},
+			"issuer": []string{"example.com"},
+		}
+		u.RawQuery = v.Encode()
+
+		now := time.Now()
+		q, err := qrcode.New(u.String(), qrcode.Medium)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "%s", err)
+			return
+		}
+		q.BackgroundColor = color.RGBA{247, 250, 252, 255}
+		q.ForegroundColor = color.RGBA{26, 32, 44, 255}
+
+		png, err := q.PNG(256)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "%s", err)
+			return
+		}
+
 		values := struct {
+			URL    template.URL
 			Value  string
 			QRCode template.URL
+			Remain int64
+			Spent  time.Duration
 		}{}
-		values.QRCode = template.URL(dataURL)
-		if pwd, err := generate(secret, 30); err == nil {
+		values.Spent = time.Since(now)
+		values.URL = template.URL(u.String())
+		values.QRCode = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
+		values.Remain = 30 - time.Now().Unix()%30
+		if pwd, err := generate(secret, 30); err != nil {
+			c.String(http.StatusInternalServerError, "%s", err)
+			return
+		} else {
 			values.Value = fmt.Sprintf("%06d", pwd%1e6)
 		}
-		c.HTML(http.StatusOK, "app.tmpl", values)
+		c.HTML(http.StatusOK, "index.html", values)
 	})
 
-	_ = e.Run(":8080")
+	_ = http.ListenAndServe(":8080", e)
 }
