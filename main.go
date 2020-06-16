@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base32"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"html/template"
 	"image/color"
+	"image/png"
 	"net/http"
 	"net/url"
 	"time"
@@ -35,6 +37,17 @@ func generate(key string, interval uint64) (uint32, error) {
 		return 0, err
 	}
 	return otp(e, uint64(time.Now().Unix())/interval), nil
+}
+
+func PNG(q *qrcode.QRCode, size int) ([]byte, error) {
+	img := q.Image(size)
+	encoder := png.Encoder{CompressionLevel: png.BestCompression}
+	var b bytes.Buffer
+	err := encoder.Encode(&b, img)
+	if err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
 }
 
 func main() {
@@ -68,7 +81,7 @@ func main() {
 		q.BackgroundColor = color.RGBA{247, 250, 252, 255}
 		q.ForegroundColor = color.RGBA{26, 32, 44, 255}
 
-		png, err := q.PNG(256)
+		data, err := PNG(q, 256)
 		if err != nil {
 			c.String(http.StatusInternalServerError, "%s", err)
 			return
@@ -83,7 +96,7 @@ func main() {
 		}{}
 		values.Spent = time.Since(now)
 		values.URL = template.URL(u.String())
-		values.QRCode = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
+		values.QRCode = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(data))
 		values.Remain = 30 - time.Now().Unix()%30
 		if pwd, err := generate(secret, 30); err != nil {
 			c.String(http.StatusInternalServerError, "%s", err)
