@@ -31,7 +31,7 @@ func otp(key []byte, value uint64) uint32 {
 	return binary.BigEndian.Uint32(hashParts)
 }
 
-func generate(key string, interval uint64) (uint32, error) {
+func generateWithBase32(key string, interval uint64) (uint32, error) {
 	e, err := base32.StdEncoding.DecodeString(key)
 	if err != nil {
 		return 0, err
@@ -57,7 +57,8 @@ func main() {
 	e.GET("/", func(c *gin.Context) {
 		secret := c.Query("secret")
 		if secret == "" {
-			c.Redirect(301, "?secret=GEZDGNBVGY3TQOJQ")
+			// secret == 123456789
+			c.Redirect(301, "?secret=GEZDGNBVGY3TQOI%3D")
 			return
 		}
 
@@ -78,7 +79,7 @@ func main() {
 			c.String(http.StatusInternalServerError, "%s", err)
 			return
 		}
-		q.BackgroundColor = color.RGBA{247, 250, 252, 255}
+		q.BackgroundColor = color.RGBA{237, 242, 247, 255}
 		q.ForegroundColor = color.RGBA{26, 32, 44, 255}
 
 		data, err := PNG(q, 256)
@@ -98,7 +99,7 @@ func main() {
 		values.URL = template.URL(u.String())
 		values.QRCode = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(data))
 		values.Remain = 30 - time.Now().Unix()%30
-		if pwd, err := generate(secret, 30); err != nil {
+		if pwd, err := generateWithBase32(secret, 30); err != nil {
 			c.String(http.StatusInternalServerError, "%s", err)
 			return
 		} else {
