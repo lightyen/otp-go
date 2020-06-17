@@ -14,7 +14,8 @@
         secret: query["secret"]
     });
 
-    QRCode.toCanvas(document.getElementById('qr'), '{{ .URL }}', {
+    const c = document.getElementById('qr')
+    QRCode.toCanvas(c, '{{ .URL }}', {
         // errorCorrectionLevel: "H",
         width: 256,
         height: 256,
@@ -25,6 +26,10 @@
     }, function (error) {
         if (error) console.error(error)
     })
+    // logo
+    // const ctx = c.getContext("2d");
+    // ctx.fillStyle = "#FFA500";
+    // ctx.fillRect((256 - 48) / 2, (256 - 48) / 2, 48, 48)
 
     function start() {
         let remain = 30000 - (new Date().getTime() % 30000)
