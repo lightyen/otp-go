@@ -7,7 +7,7 @@
     const query = Qs.parse(q)
     const totp = new OTPAuth.TOTP({
         issuer: query["issuer"] || "example.com",
-        label: 'AzureDiamond',
+        label: 'Test',
         algorithm: 'SHA1',
         digits: 6,
         period: 30,
@@ -15,7 +15,7 @@
     });
 
     QRCode.toCanvas(document.getElementById('qr'), '{{ .URL }}', {
-        errorCorrectionLevel: "H",
+        // errorCorrectionLevel: "H",
         width: 256,
         height: 256,
         color: {
