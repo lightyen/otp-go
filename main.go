@@ -1,22 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base32"
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"html/template"
-	"image/color"
-	"image/png"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/skip2/go-qrcode"
 )
 
 func otp(key []byte, value uint64) uint32 {
@@ -39,15 +34,15 @@ func generateWithBase32(key string, interval uint64) (uint32, error) {
 	return otp(e, uint64(time.Now().Unix())/interval), nil
 }
 
-func PNG(q *qrcode.QRCode, size int) ([]byte, error) {
-	img := q.Image(size)
-	encoder := png.Encoder{CompressionLevel: png.BestCompression}
-	var b bytes.Buffer
-	err := encoder.Encode(&b, img)
+func validate(key, pwd string) error {
+	value, err := generateWithBase32(key, 30)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return b.Bytes(), nil
+	if pwd != fmt.Sprintf("%06d", value%1e6) {
+		return fmt.Errorf("Invalid.")
+	}
+	return nil
 }
 
 func main() {
@@ -73,38 +68,10 @@ func main() {
 		}
 		u.RawQuery = v.Encode()
 
-		now := time.Now()
-		q, err := qrcode.New(u.String(), qrcode.Medium)
-		if err != nil {
-			c.String(http.StatusInternalServerError, "%s", err)
-			return
-		}
-		q.BackgroundColor = color.RGBA{237, 242, 247, 255}
-		q.ForegroundColor = color.RGBA{26, 32, 44, 255}
-
-		data, err := PNG(q, 256)
-		if err != nil {
-			c.String(http.StatusInternalServerError, "%s", err)
-			return
-		}
-
 		values := struct {
-			URL    template.URL
-			Value  string
-			QRCode template.URL
-			Remain int64
-			Spent  time.Duration
+			URL template.URL
 		}{}
-		values.Spent = time.Since(now)
 		values.URL = template.URL(u.String())
-		values.QRCode = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(data))
-		values.Remain = 30 - time.Now().Unix()%30
-		if pwd, err := generateWithBase32(secret, 30); err != nil {
-			c.String(http.StatusInternalServerError, "%s", err)
-			return
-		} else {
-			values.Value = fmt.Sprintf("%06d", pwd%1e6)
-		}
 		c.HTML(http.StatusOK, "index.html", values)
 	})
 

@@ -1,7 +1,51 @@
-<div class="text-blue-500 hover:text-blue-400 hover:underline">{{ .URL }}</div>
-<div class="my-3">
-    <img src="{{ .QRCode }}" alt="qrcode" />
-</div>
-<div>花費時間：{{ .Spent }}</div>
-<div class="text-2xl font-bold p-3">{{ .Value }}</div>
-<div>剩餘時間：{{ .Remain }}s</div>
+<canvas id="qr"></canvas>
+<div id="value" class="text-2xl font-bold p-3"></div>
+<div class="text-gray-900">剩餘時間：<span id="remain"></span>s</div>
+<script>
+    const u = new URL("{{ .URL }}")
+    const q = u.search.startsWith("?") ? u.search.substring(1) : u.search
+    const query = Qs.parse(q)
+    const totp = new OTPAuth.TOTP({
+        issuer: query["issuer"] || "example.com",
+        label: 'AzureDiamond',
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+        secret: query["secret"]
+    });
+
+    QRCode.toCanvas(document.getElementById('qr'), '{{ .URL }}', {
+        errorCorrectionLevel: "H",
+        width: 256,
+        height: 256,
+        color: {
+            light: "#edf2f7ff",
+            dark: "#1a202cff",
+        },
+    }, function (error) {
+        if (error) console.error(error)
+    })
+
+    function start() {
+        let remain = 30000 - (new Date().getTime() % 30000)
+        document.getElementById("value").textContent = totp.generate()
+        document.getElementById("remain").textContent = (remain / 1000).toFixed(2)
+        let prev = 0
+        function anime(t) {
+            const elapsed = t - prev
+            prev = t
+            remain -= elapsed
+            if (remain < 0) {
+                window.requestAnimationFrame(start)
+                return
+            }
+            document.getElementById("remain").textContent = (remain / 1000).toFixed(2)
+            window.requestAnimationFrame(anime)
+        }
+
+        window.requestAnimationFrame(anime)
+    }
+
+    start()
+
+</script>
